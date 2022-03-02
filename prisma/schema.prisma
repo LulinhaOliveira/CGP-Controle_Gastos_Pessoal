@@ -9,3 +9,86 @@ datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
 }
+
+enum Tipo_contas {
+  contas
+  debitos
+  credito
+}
+
+model User{
+  id String @id @default(uuid())
+  email String @unique 
+  password String
+  nome String
+  dat_nasc DateTime?
+  saldo_mensal Float? @default(0)
+  saldo_resto Float?
+  dat_recebe DateTime?
+  Categorias Categorias[]
+  Catoes Cartao[]
+}
+
+model Categorias{
+  id String @id @default(uuid())
+  nome String
+  desc String?
+  valor_planejado Float
+  valor_atual Float @default(0)
+  tipo Tipo_contas
+  //Usuario Relacionamento
+  id_user String 
+  author User @relation(fields: [id_user], references: [id])
+  //Debitos Relacionamento
+  Debitos Debitos[]
+  //Contas Relacionamento
+  Contas Contas[]
+  //Credito Relacionamento
+  Creditos Credito[]
+  @@unique([nome,id_user])
+}
+
+model Debitos{
+  id String @id @default(uuid())
+  valor Float
+  dat_hora DateTime @default(now())
+  desc String?
+  id_categoria String
+  author Categorias @relation(fields: [id_categoria], references: [id])
+}
+
+model Contas{
+  id String @id @default(uuid())
+  valor Float
+  dat_vencimento DateTime?
+  dat_hora DateTime @default(now())
+  desc String?
+  id_categoria String
+  author Categorias @relation(fields: [id_categoria], references: [id])
+}
+
+model Credito{
+  id String @id @default(uuid())
+  num_parcelas Int
+  valor_total Float
+  valor_parcela Float?
+  dat_hota DateTime @default(now())
+  desc String?
+  id_categoria String
+  author Categorias @relation(fields: [id_categoria], references: [id])
+  id_cartao String
+  author2 Cartao @relation(fields: [id_cartao], references: [id])
+
+}
+
+model Cartao{
+  id String @id @default(uuid())
+  nome String
+  saldo_parcelado Float @default(0)
+  dat_ven DateTime?
+  id_user String
+  author2 User @relation(fields: [id_user], references: [id])
+  Creditos Credito[]
+
+  @@unique([nome,id_user])
+}
