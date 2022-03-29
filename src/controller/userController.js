@@ -85,8 +85,8 @@ class UserController {
                     dat_nasc : dat_nasc_parse
                     }
                   }).then(()=> response.status(201).send({Usuario_Criado : true, email : email, nome : nome }))
-                  .catch((err) =>  response.status(400).send({Error: true, Messagem : err.meta.target}))              
-            }).catch((err) => response.status(400).send({Error: true, Messagem: err.errors}));
+                  .catch((err) =>  response.status(400).send({Error: "Validação", Messagem : err.meta.target}))              
+            }).catch((err) => response.status(400).send({Error: "Database", Messagem: err.errors}));
                    
       
     }
