@@ -24,25 +24,59 @@ class CreditoController {
                 id 
             }
         }).then((results) => response.status(200).send({Busca : true , results})
-        ).catch((err) => response.status(200).send({Busca : false , err}))
+        ).catch((err) => response.status(400).send({Busca : false , err}))
     }
    
     //Fazer Controle de Acesso
     async remove(request, response){
         const {id} = request.params;
 
-        await prismaClient.credito.delete({
-            where:{
-                id
-            }
-        }).then((results) => response.status(200).send({remove : true })//Diminuir Valor da Categoria
-        ).catch((err) => response.status(200).send({remove : false , err}))
+            const credito = await prismaClient.credito.findUnique({
+                where:{
+                    id
+                }
+            }).then(async (results) => {
+                await prismaClient.credito.delete({
+                    where:{
+                        id
+                    } 
+                }).then(() => {
+                    await prismaClient.categorias.update({
+                        where : {
+                            id : credito.id_categoria
+                        },
+                        data : {
+                            valor_atual : valor_atual - credito.valor_total
+                        }
+                    }).then(()=>{
+                        await prismaClient.cartao.update({
+                            where : {
+                                id : credito.id_cartao
+                            },
+                            data : {
+                                saldo_parcelado : saldo_parcelado - credito.valor_parcela
+                            }
+                        }).then((results) => response.status(200).send({remove : true })
+                        ).catch((err) => response.status(400).send({remove : false , err}))
+                    }).catch((err) => response.status(400).send({remove : false , err}))
+                }).catch((err) => response.status(400).send({remove : false , err}))
+            }).catch((err) => response.status(400).send({remove : false , err}))
     }
 
     async store(request, response) {
         const { valor_total , num_parcelas , desc, id_categoria, id_cartao } = request.body;
         const valor_parcela =  valor_total/num_parcelas;
         let categoria;
+        
+        const schema = yup.object().shape({
+            valor_total : yup.number("O nome deve ser numero"),
+            num_parcelas : yup.number("O valor deve ser um numero"),
+            desc : yup.string("A descrição dev  e ser uma String"),
+ })
+        
+        await schema.validate({valor_total, num_parcelas, desc})
+        .then( async ()=>{
+                
         const categoriaAux = {
             connect : {
                 id: id_categoria
@@ -90,11 +124,15 @@ class CreditoController {
                         data:{
                             saldo_parcelado : results.saldo_parcelado + valor_parcela
                         } 
-                        }).then((results)=> response.send({CreditoCriado : true}))
-                    })
-                })
-            })
-        })
+                        }).then((results)=> response.send({CreditoCriado : true})
+                        ).catch((err)=>response.status(400).send({Error: err.errors}))
+                    }).catch((err)=>response.status(400).send({Error: err.errors}))
+                }).catch((err)=>response.status(400).send({Error: err.errors}))
+            }).catch((err)=>response.status(400).send({Error: err.errors}))
+        }).catch((err)=>response.status(400).send({Error: err.errors}))
+        }).catch((err)=> response.status(400).send({categoria_Cridada : false, error: err.message }))
+
+     
     }   
 }
 

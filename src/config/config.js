@@ -15,7 +15,7 @@ const appX = express();
 appX.use(express.json());
 appX.use(morgan("dev"));
 appX.use(AuthorizationMiddleware);
-//appX.use(ControlAcessMiddleware);
+appX.use(ControlAcessMiddleware);
 appX.use(UserRouter);
 appX.use(CateogriasRouter)
 appX.use(CartoesRouter)

@@ -1,64 +1,116 @@
 import * as yup from "yup";
 import moment from "moment";
 import prisma from '@prisma/client';
+
 const prismaClient = new prisma.PrismaClient();
 
 class ContasController {
     async getAll(request, response){
-        
-        await prismaClient.cartao.findMany({
+        const {id_categoria} = request.body;
+
+        await prismaClient.contas.findMany({
             where: {
-                id_user : request.loggedUser.id
+                id_categoria
             }
         }).then((results) => response.status(200).send({Busca : true , results})
-        ).catch((err)=>response.status(200).send({Busca : false, error : err} ))
+        ).catch((err)=>response.status(400).send({Busca : false, error : err} ))
     }
     
     //Fazer Controle de Acesso
     async getOne(request, response){
         const {id} = request.params;
 
-        await prismaClient.cartao.findUnique(
+        await prismaClient.contas.findUnique(
             {where : {
                 id 
             }
         }).then((results) => response.status(200).send({Busca : true , results})
-        ).catch((err) => response.status(200).send({Busca : false , err}))
+        ).catch((err) => response.status(400).send({Busca : false , err}))
     }
    
     //Fazer Controle de Acesso
     async remove(request, response){
         const {id} = request.params;
 
-        await prismaClient.cartao.delete({
+        const contas = await prismaClient.contas.findUnique({
             where:{
                 id
             }
-        }).then((results) => response.status(200).send({remove : true })
-        ).catch((err) => response.status(200).send({remove : false , err}))
+        }).then(async (results) => {
+            await prismaClient.contas.delete({
+                where:{
+                    id
+                } 
+            }).then(() => {
+                await prismaClient.categorias.update({
+                    where : {
+                        id : contas.id_categoria
+                    },
+                    data : {
+                        valor_atual : valor_atual - contas.valor_total
+                    }
+                }).then((results) => response.status(200).send({remove : true })
+                ).catch((err) => response.status(400).send({remove : false , err}))
+            }).catch((err) => response.status(400).send({remove : false , err}))
+        }).catch((err) => response.status(400).send({remove : false , err}))
     
     }
 
     async store(request, response) {
-       const { nome, dat_ven } = request.body;
-        const user = {
-            connect : {
-                id : request.loggedUser.id
+       const { dat_vencimento, id_categoria, desc, valor } = request.body
+
+       const schema = yup.object().shape({
+        valor : yup.number("O valor deve ser numero"),
+        desc : yup.string("A descrição deve ser uma String"),
+        })
+    
+        await schema.validate({valor_total, num_parcelas, desc})
+        .then( async ()=>{
+            let dat_vencimento_parse;
+
+            if(dat_vencimento){
+                if((moment(dat_vencimento, "DD MM YYYY").isValid())){
+                    dat_vencimento_parse = new Date(moment(dat_vencimento, "DD MM YYYY"));
+                }else{
+                    return response.status(400).send({Error: "Insira uma Data Valida"});
+                }  
             }
-        }   
 
-        await prismaClient.cartao.create({
-            data : {
-                nome,
-                dat_ven,
-                author2 : user
-            }
-        }).then(()=> response.status(200).send({Cartao_Criado : true , nome, dat_ven})
-        ).catch((err)=> response.status(400).send({Categoria_Cridada : false, error: err.message }))
-
-    }
-
-
+            const category = {
+                connect : {
+                    id : id_categoria
+                }
+            }   
+    
+            await prismaClient.contas.create({
+                data : {
+                    dat_vencimento,
+                    author : category,
+                    valor,
+                    desc
+                }
+            }).then ( async () => {
+                await prismaClient.categorias.findUnique(
+                    {where : {
+                        id : id_categoria
+                    }
+                }).then( async (results)=>{                  
+                     await prismaClient.categorias.update({
+                        where:{
+                         id : id_categoria
+                        },
+                        data:{
+                        valor_atual : results.valor_atual + valor
+                        }  
+                    }).then((results) => response.send({results , Criado : true})
+                    ).catch((err)=>response.status(400).send({Error: err.errors}))  
+                }).catch((err)=>response.status(400).send({Error: err.errors})) 
+            }).catch((err)=>response.status(400).send({Error: err.errors}))
+            
+        }).catch((err)=>response.status(400).send({Error: err.errors}))
+      
+    }    
 }
+
 
 export default ContasController;
