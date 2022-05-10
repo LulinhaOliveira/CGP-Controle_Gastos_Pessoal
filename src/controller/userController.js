@@ -37,10 +37,16 @@ class UserController {
   }
 
   async getOne(request, response) {
-    const { id } = request.params;
+    const { id } = request.loggedUser;
 
     try {
-      let user = await prismaClient.user.findUnique({ where: { id } });
+      let user = await prismaClient.user.findUnique({
+        where: { id },
+        include: {
+          Categorias: true,
+          Cartoes: true,
+        },
+      });
 
       if (user) {
         user.dat_recebe = moment(user.dat_recebe).date();
@@ -190,7 +196,10 @@ class UserController {
       .validate({ saldo_mensal })
       .then(async () => {
         await prismaClient.user
-          .update({ where: { id }, data: { saldo_mensal } })
+          .update({
+            where: { id },
+            data: { saldo_mensal, saldo_resto: saldo_mensal },
+          })
           .then(() =>
             response.status(200).send({ Messagem: "Saldo Atualizado" })
           )
