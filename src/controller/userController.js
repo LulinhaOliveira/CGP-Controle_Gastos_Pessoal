@@ -14,6 +14,19 @@ const hashPassword = (password) => {
   return hash;
 };
 
+const filtroDate = () => {
+  const date = new Date();
+  const primeiroDia = new Date(date.getFullYear(), date.getMonth(), 1);
+  primeiroDia.setHours(primeiroDia.getHours() + 20);
+  primeiroDia.setMinutes(primeiroDia.getMinutes() + 59);
+  primeiroDia.setSeconds(primeiroDia.getSeconds() + 59);
+  const ultimoDia = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  ultimoDia.setHours(ultimoDia.getHours() + 20);
+  ultimoDia.setMinutes(ultimoDia.getMinutes() + 59);
+  ultimoDia.setSeconds(ultimoDia.getSeconds() + 59);
+  return [primeiroDia, ultimoDia];
+};
+
 class UserController {
   async login(request, response) {
     const { email, password } = request.body;
@@ -37,10 +50,43 @@ class UserController {
   }
 
   async getOne(request, response) {
-    const { id } = request.params;
-
+    const { id } = request.loggedUser;
+    const [primeiroDia, ultimoDia] = filtroDate();
     try {
-      let user = await prismaClient.user.findUnique({ where: { id } });
+      let user = await prismaClient.user.findUnique({
+        where: { id },
+        include: {
+          Categorias: {
+            include: {
+              Contas: {
+                where: {
+                  dat_hora: {
+                    gte: primeiroDia,
+                    lt: ultimoDia,
+                  },
+                },
+              },
+              Creditos: {
+                where: {
+                  dat_hota: {
+                    gte: primeiroDia,
+                    lt: ultimoDia,
+                  },
+                },
+              },
+              Debitos: {
+                where: {
+                  dat_hora: {
+                    gte: primeiroDia,
+                    lt: ultimoDia,
+                  },
+                },
+              },
+            },
+          },
+          Cartoes: true,
+        },
+      });
 
       if (user) {
         user.dat_recebe = moment(user.dat_recebe).date();
@@ -51,7 +97,33 @@ class UserController {
           .send({ Messagem: "Usuario Não Encontrado" });
       }
     } catch (err) {
-      return response.status(400).send({ Messagem: "Ocorreu um Erro" });
+      return response.status(400).send({ Messagem: "Ocorreu um Erro", err });
+    }
+    return response.status(401).send({ Messagem: "Esse dado não é seu" });
+  }
+
+  async getOneUserData(request, response) {
+    const { id } = request.loggedUser;
+
+    try {
+      let user = await prismaClient.user.findUnique({
+        where: { id },
+      });
+
+      if (user) {
+        user.dat_recebe = moment(user.dat_recebe).date();
+        delete user.dat_recebe;
+        delete user.saldo_resto;
+        delete user.password;
+
+        return response.send(user);
+      } else {
+        return response
+          .status(404)
+          .send({ Messagem: "Usuario Não Encontrado" });
+      }
+    } catch (err) {
+      return response.status(400).send({ Messagem: "Ocorreu um Erro", err });
     }
     return response.status(401).send({ Messagem: "Esse dado não é seu" });
   }
@@ -132,14 +204,12 @@ class UserController {
 
   //Update de Nome, Data_Nascimento e Senha
   async uptadeAll(request, response) {
-    const { id } = request.params;
+    const { id } = request.loggedUser;
     const { nome, password, dat_nasc } = request.body;
 
     const schema = yup.object().shape({
-      password: yup
-        .string("A senha deve ser String")
-        .min(5, "Deve ter ao menos Cinco caracteres"),
-      nome: yup.string("O nome deve ser uma String").min(4),
+      nome: yup.string().min(4),
+      password: yup.string().min(5),
     });
 
     await schema
@@ -162,13 +232,17 @@ class UserController {
             where: { id },
             data: {
               nome,
-              password: hashPassword(password),
+              password: password ? hashPassword(password) : undefined,
               dat_nasc: dat_nasc_parse,
             },
           })
-          .then(() =>
-            response.status(200).send({ Messagem: "Dados Atualizado" })
-          )
+          .then((result) => {
+            delete result.dat_recebe;
+            delete result.password;
+            delete result.saldo_resto;
+
+            response.status(200).send({ Messagem: "Dados Atualizado", result });
+          })
           .catch((err) => response.status(400).send({ Error: err }));
       })
       .catch((err) => response.status(400).send({ Error: err.errors }));
@@ -190,7 +264,10 @@ class UserController {
       .validate({ saldo_mensal })
       .then(async () => {
         await prismaClient.user
-          .update({ where: { id }, data: { saldo_mensal } })
+          .update({
+            where: { id },
+            data: { saldo_mensal, saldo_resto: saldo_mensal },
+          })
           .then(() =>
             response.status(200).send({ Messagem: "Saldo Atualizado" })
           )
