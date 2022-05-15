@@ -12,7 +12,9 @@ const ControlAcessMiddleware = (request, response, next) => {
     (request.url === "/cgp/users" && request.method === "POST") ||
     (request.url === "/cgp/categorias" && request.method === "POST") ||
     (request.url === "/cgp/cartoes" && request.method === "POST") ||
-    (request.url === "/cgp/users" && request.method === "GET")
+    (request.url === "/cgp/users" && request.method === "GET") ||
+    (request.url === "/cgp/usersData" && request.method === "GET") ||
+    (request.url === "/cgp/users" && request.method === "PUT")
   ) {
     return next();
   }

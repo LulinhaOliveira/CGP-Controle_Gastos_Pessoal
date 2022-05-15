@@ -1,17 +1,50 @@
 import * as yup from "yup";
 import moment from "moment";
 import prisma from "@prisma/client";
+
 const prismaClient = new prisma.PrismaClient();
 
 class CategoriasController {
   async getAll(request, response) {
+    const { dat_prev, dat_pos } = request.body;
+
     await prismaClient.categorias
       .findMany({
         where: {
           id_user: request.loggedUser.id,
         },
+        include: {
+          Contas: {
+            where: {
+              dat_hora: {
+                gte: dat_prev,
+                lt: dat_pos,
+              },
+            },
+          },
+          Creditos: {
+            where: {
+              dat_hota: {
+                gte: dat_prev,
+                lt: dat_pos,
+              },
+            },
+          },
+          Debitos: {
+            where: {
+              dat_hora: {
+                gte: dat_prev,
+                lt: dat_pos,
+              },
+            },
+          },
+        },
       })
-      .then((results) => response.status(200).send({ Busca: true, results }))
+      .then((results) =>
+        response
+          .status(200)
+          .send({ Busca: true, primeiroDia, ultimoDia, results })
+      )
       .catch((err) => response.status(400).send({ Busca: false, error: err }));
   }
 
