@@ -6,7 +6,6 @@ const { JWT_SECRET } = process.env;
 
 const ControlAcessMiddleware = (request, response, next) => {
   const { loggedUser } = request;
-
   if (
     request.url === "/cgp/login" ||
     (request.url === "/cgp/users" && request.method === "POST") ||
@@ -21,28 +20,39 @@ const ControlAcessMiddleware = (request, response, next) => {
 
   let param = String(request.url).split("/");
   let paramRota = param[2];
-  let paramId = param[3];
-
+  let param1 = param[3];
+  let param2 = param[4];
+  console.log(param1, param2);
   if (paramRota === "categorias") {
-    if (paramId !== undefined) {
-      (async () => {
-        await prismaClient.categorias
-          .findUnique({
-            where: { id: paramId },
-          })
-          .then((results) => {
-            if (results.id_user === loggedUser.id) {
-              return next();
-            } else {
-              return response
-                .status(401)
-                .send({ Messagem: "Esse dado não é seu" });
-            }
-          })
-          .catch((err) => {
-            return response.status(400).send({ Messagem: err });
-          });
-      })();
+    if (param1 !== undefined) {
+      if (param2 === undefined) {
+        (async () => {
+          await prismaClient.categorias
+            .findUnique({
+              where: { id: param1 },
+            })
+            .then((results) => {
+              if (results) {
+                if (results.id_user === loggedUser.id) {
+                  return next();
+                } else {
+                  return response
+                    .status(401)
+                    .send({ Messagem: "Esse dado não é seu" });
+                }
+              } else {
+                return response
+                  .status(400)
+                  .send({ Messagem: "Categoria não existe" });
+              }
+            })
+            .catch((err) => {
+              return response.status(400).send({ Messagem: err });
+            });
+        })();
+      } else {
+        return next();
+      }
     } else {
       return next();
     }
@@ -56,11 +66,11 @@ const ControlAcessMiddleware = (request, response, next) => {
       return response.status(401).send({ Messagem: "Esse dado não é seu" });
     }
   } else if (paramRota === "cartoes") {
-    if (paramId !== undefined) {
+    if (param1 !== undefined) {
       (async () => {
         await prismaClient.cartao
           .findUnique({
-            where: { id: paramId },
+            where: { id: param1 },
           })
           .then((results) => {
             if (results.id_user === loggedUser.id) {
@@ -113,11 +123,11 @@ const ControlAcessMiddleware = (request, response, next) => {
           });
       })();
     } else {
-      if (paramId !== undefined) {
+      if (param1 !== undefined) {
         (async () => {
           await prismaClient.credito
             .findUnique({
-              where: { id: paramId },
+              where: { id: param1 },
             })
             .then(async (results) => {
               await prismaClient.categorias
@@ -170,7 +180,7 @@ const ControlAcessMiddleware = (request, response, next) => {
       (async () => {
         await prismaClient.debitos
           .findUnique({
-            where: { id: paramId },
+            where: { id: param1 },
           })
           .then(async (results) => {
             await prismaClient.categorias
@@ -220,7 +230,7 @@ const ControlAcessMiddleware = (request, response, next) => {
       (async () => {
         await prismaClient.contas
           .findUnique({
-            where: { id: paramId },
+            where: { id: param1 },
           })
           .then(async (results) => {
             await prismaClient.categorias

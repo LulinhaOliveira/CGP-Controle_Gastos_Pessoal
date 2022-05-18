@@ -6,7 +6,10 @@ const prismaClient = new prisma.PrismaClient();
 
 class CategoriasController {
   async getAll(request, response) {
-    const { dat_prev, dat_pos } = request.body;
+    let { dat_prev, dat_pos } = request.params;
+
+    dat_prev = new Date(dat_prev);
+    dat_pos = new Date(dat_pos);
 
     await prismaClient.categorias
       .findMany({
@@ -40,11 +43,7 @@ class CategoriasController {
           },
         },
       })
-      .then((results) =>
-        response
-          .status(200)
-          .send({ Busca: true, primeiroDia, ultimoDia, results })
-      )
+      .then((results) => response.status(200).send({ Busca: true, results }))
       .catch((err) => response.status(400).send({ Busca: false, error: err }));
   }
 
