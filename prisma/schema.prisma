@@ -13,7 +13,7 @@ datasource db {
 enum Tipo_contas {
   contas
   debitos
-  credito
+  creditos
 }
 
 model User {
@@ -23,7 +23,7 @@ model User {
   nome         String
   dat_nasc     DateTime?
   saldo_mensal Float?       @default(0)
-  saldo_resto  Float?
+  saldo_resto  Float?       @default(0)
   dat_recebe   DateTime?
   Categorias   Categorias[]
   Cartoes      Cartao[]
@@ -44,7 +44,7 @@ model Categorias {
   //Contas Relacionamento
   Contas          Contas[]
   //Credito Relacionamento
-  Creditos        Credito[]
+  Creditos        Creditos[]
 
   @@unique([nome, id_user])
 }
@@ -55,7 +55,7 @@ model Debitos {
   dat_hora     DateTime   @default(now())
   desc         String?
   id_categoria String
-  author       Categorias @relation(fields: [id_categoria], references: [id])
+  author       Categorias @relation(fields: [id_categoria], references: [id], onDelete: Cascade)
 }
 
 model Contas {
@@ -65,10 +65,10 @@ model Contas {
   dat_hora       DateTime   @default(now())
   desc           String?
   id_categoria   String
-  author         Categorias @relation(fields: [id_categoria], references: [id])
+  author         Categorias @relation(fields: [id_categoria], references: [id], onDelete: Cascade)
 }
 
-model Credito {
+model Creditos {
   id            String     @id @default(uuid())
   num_parcelas  Int
   valor_total   Float
@@ -76,20 +76,20 @@ model Credito {
   dat_hota      DateTime   @default(now())
   desc          String?
   id_categoria  String
-  author        Categorias @relation(fields: [id_categoria], references: [id])
+  author        Categorias @relation(fields: [id_categoria], references: [id], onDelete: Cascade)
   id_cartao     String
   author2       Cartao     @relation(fields: [id_cartao], references: [id])
 
 }
 
 model Cartao {
-  id              String    @id @default(uuid())
+  id              String     @id @default(uuid())
   nome            String
-  saldo_parcelado Float     @default(0)
+  saldo_parcelado Float      @default(0)
   dat_ven         DateTime?
   id_user         String
-  author2         User      @relation(fields: [id_user], references: [id])
-  Creditos        Credito[]
+  author2         User       @relation(fields: [id_user], references: [id])
+  Creditos        Creditos[]
 
   @@unique([nome, id_user])
 }
