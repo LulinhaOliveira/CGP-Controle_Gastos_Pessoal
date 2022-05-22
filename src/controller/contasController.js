@@ -35,8 +35,8 @@ class ContasController {
   //Fazer Controle de Acesso
   async remove(request, response) {
     const { id } = request.params;
-
-    const contas = await prismaClient.contas
+    let valor;
+    await prismaClient.contas
       .findUnique({
         where: {
           id,
@@ -49,17 +49,29 @@ class ContasController {
               id,
             },
           })
-          .then(async () => {
+          .then(async (results) => {
+            valor = results.valor;
             await prismaClient.categorias
-              .update({
+              .findUnique({
                 where: {
-                  id: contas.id_categoria,
-                },
-                data: {
-                  valor_atual: valor_atual - contas.valor_total,
+                  id: results.id_categoria,
                 },
               })
-              .then((results) => response.status(200).send({ remove: true }))
+              .then(async (results) => {
+                await prismaClient.categorias
+                  .update({
+                    where: {
+                      id: results.id,
+                    },
+                    data: {
+                      valor_atual: results.valor_atual - valor,
+                    },
+                  })
+                  .then(() => response.status(200).send({ remove: true }))
+                  .catch((err) =>
+                    response.status(400).send({ remove: false, err })
+                  );
+              })
               .catch((err) =>
                 response.status(400).send({ remove: false, err })
               );
@@ -78,7 +90,7 @@ class ContasController {
     });
 
     await schema
-      .validate({ valor_total, num_parcelas, desc })
+      .validate({ valor, desc })
       .then(async () => {
         let dat_vencimento_parse;
 
