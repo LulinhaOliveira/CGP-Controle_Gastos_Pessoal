@@ -8,12 +8,13 @@ const ControlAcessMiddleware = (request, response, next) => {
   const { loggedUser } = request;
   if (
     request.url === "/cgp/login" ||
-    (request.url === "/cgp/users" && request.method === "POST") ||
+    request.url === "/cgp/users" ||
     (request.url === "/cgp/categorias" && request.method === "POST") ||
     (request.url === "/cgp/cartoes" && request.method === "POST") ||
     (request.url === "/cgp/users" && request.method === "GET") ||
     (request.url === "/cgp/usersData" && request.method === "GET") ||
-    (request.url === "/cgp/users" && request.method === "PUT")
+    (request.url === "/cgp/users" && request.method === "PUT") ||
+    request.url === "/cgp/users/saldo_mensal"
   ) {
     return next();
   }
@@ -22,7 +23,6 @@ const ControlAcessMiddleware = (request, response, next) => {
   let paramRota = param[2];
   let param1 = param[3];
   let param2 = param[4];
-  console.log(param1, param2);
   if (paramRota === "categorias") {
     if (param1 !== undefined) {
       if (param2 === undefined) {
@@ -125,7 +125,7 @@ const ControlAcessMiddleware = (request, response, next) => {
     } else {
       if (param1 !== undefined) {
         (async () => {
-          await prismaClient.credito
+          await prismaClient.creditos
             .findUnique({
               where: { id: param1 },
             })
@@ -163,7 +163,6 @@ const ControlAcessMiddleware = (request, response, next) => {
             where: { id: request.body.id_categoria },
           })
           .then((results) => {
-            console.log(loggedUser.id);
             if (results.id_user === loggedUser.id) {
               return next();
             } else {
@@ -197,11 +196,11 @@ const ControlAcessMiddleware = (request, response, next) => {
                 }
               })
               .catch((err) => {
-                return response.status(400).send({ Messagem: err });
+                return response.status(400).send({ Messagem: "aqui" });
               });
           })
           .catch((err) => {
-            return response.status(400).send({ Messagem: err });
+            return response.status(400).send({ Messagem: "acola" });
           });
       })();
     }
@@ -213,7 +212,6 @@ const ControlAcessMiddleware = (request, response, next) => {
             where: { id: request.body.id_categoria },
           })
           .then((results) => {
-            console.log(loggedUser.id);
             if (results.id_user === loggedUser.id) {
               return next();
             } else {

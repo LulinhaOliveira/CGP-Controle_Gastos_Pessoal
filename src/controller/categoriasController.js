@@ -44,7 +44,9 @@ class CategoriasController {
         },
       })
       .then((results) => response.status(200).send({ Busca: true, results }))
-      .catch((err) => response.status(400).send({ Busca: false, error: err }));
+      .catch((err) =>
+        response.status(400).send({ Error: err, Messagem: "Requisição Falhou" })
+      );
   }
 
   //Fazer Controle de Acesso
@@ -58,21 +60,57 @@ class CategoriasController {
         },
       })
       .then((results) => response.status(200).send({ Busca: true, results }))
-      .catch((err) => response.status(400).send({ Busca: false, err }));
+      .catch((err) =>
+        response.status(400).send({ Error: err, Messagem: "Requisição Falhou" })
+      );
   }
 
   //Fazer Controle de Acesso
   async remove(request, response) {
     const { id } = request.params;
-
+    let valor_planejado;
     await prismaClient.categorias
       .delete({
         where: {
           id,
         },
       })
-      .then((results) => response.status(200).send({ remove: true }))
-      .catch((err) => response.status(400).send({ remove: false, err }));
+      .then(async (results) => {
+        valor_planejado = results.valor_planejado;
+        await prismaClient.user
+          .findUnique({
+            where: {
+              id: request.loggedUser.id,
+            },
+          })
+          .then(async (results) => {
+            await prismaClient.user
+              .update({
+                where: {
+                  id: request.loggedUser.id,
+                },
+                data: {
+                  saldo_resto: valor_planejado + results.saldo_resto,
+                },
+              })
+              .then(() =>
+                response.status(200).send({ Remove: true, Messagem: "Sucesso" })
+              )
+              .catch((err) =>
+                response
+                  .status(400)
+                  .send({ Error: err, Messagem: "Requisição Falhou" })
+              );
+          })
+          .catch((err) =>
+            response
+              .status(400)
+              .send({ Error: err, Messagem: "Requisição Falhou" })
+          );
+      })
+      .catch((err) =>
+        response.status(400).send({ Error: err, Messagem: "Requisição Falhou" })
+      );
   }
 
   async store(request, response) {
@@ -88,7 +126,7 @@ class CategoriasController {
       desc: yup.string("A descrição dev  e ser uma String"),
       tipo: yup
         .mixed()
-        .oneOf(["debitos", "credito", "contas"])
+        .oneOf(["debitos", "creditos", "contas"])
         .required("Tipo deve Ser Obrigatorio"),
     });
 
@@ -112,44 +150,54 @@ class CategoriasController {
             },
           })
           .then(async () => {
-            const result = await prismaClient.user.findUnique({
-              where: {
-                id: request.loggedUser.id,
-              },
-            });
-            await prismaClient.user.update({
-              where: {
-                id: request.loggedUser.id,
-              },
-              data: {
-                saldo_resto: result.saldo_resto - valor_planejado,
-              },
-            });
-
-            response.status(200).send({
-              Categoria_Criada: true,
-              nome,
-              valor_planejado,
-              desc,
-              tipo,
-            });
+            await prismaClient.user
+              .findUnique({
+                where: {
+                  id: request.loggedUser.id,
+                },
+              })
+              .then(async (results) => {
+                await prismaClient.user
+                  .update({
+                    where: {
+                      id: results.id,
+                    },
+                    data: {
+                      saldo_resto: results.saldo_resto - valor_planejado,
+                    },
+                  })
+                  .then(() => {
+                    response.status(200).send({
+                      Categoria_Criada: true,
+                      nome,
+                      valor_planejado,
+                      desc,
+                      tipo,
+                    });
+                  })
+                  .catch((err) =>
+                    response
+                      .status(400)
+                      .send({ Error: err, Messagem: "Requisição Falhou" })
+                  );
+              })
+              .catch((err) =>
+                response
+                  .status(400)
+                  .send({ Error: err, Messagem: "Requisição Falhou" })
+              );
           })
-          .catch((err) =>
-            response
-              .status(400)
-              .send({ Categoria_Cridada: false, error: err.message })
-          );
+          .catch((err) => response.status(400).send({ Error: err }));
       })
       .catch((err) =>
-        response
-          .status(400)
-          .send({ categoria_Cridada: false, error: err.message })
+        response.status(400).send({ Error: err, Messagem: "Requisição Falhou" })
       );
   }
 
   async uptadeAll(request, response) {
     const { id } = request.params;
     const { nome, desc, valor_planejado } = request.body;
+    let old_valor_planejado;
 
     const schema = yup.object().shape({
       nome: yup
@@ -163,18 +211,60 @@ class CategoriasController {
       .validate({ nome, valor_planejado, desc })
       .then(async () => {
         await prismaClient.categorias
-          .update({
-            where: { id },
-            data: {
-              nome,
-              valor_planejado,
-              desc,
+          .findUnique({
+            where: {
+              id,
             },
           })
-          .then(() =>
-            response.status(200).send({ Messagem: "Dados Atualizado" })
-          )
-          .catch((err) => response.status(400).send({ Error: err }));
+          .then(async (results) => {
+            old_valor_planejado = results.valor_planejado;
+            await prismaClient.categorias
+              .update({
+                where: { id },
+                data: {
+                  nome,
+                  valor_planejado,
+                  desc,
+                },
+              })
+              .then(async (results) => {
+                await prismaClient.user
+                  .findUnique({ where: { id: request.loggedUser.id } })
+                  .then(async (results) => {
+                    console.log(results);
+                    await prismaClient.user
+                      .update({
+                        where: { id: results.id },
+                        data: {
+                          saldo_resto:
+                            results.saldo_resto +
+                            (old_valor_planejado - valor_planejado),
+                        },
+                      })
+                      .then(() =>
+                        response
+                          .status(200)
+                          .send({ Messagem: "Dados Atualizado" })
+                      )
+                      .catch((err) =>
+                        response
+                          .status(400)
+                          .send({ Error: err, Messagem: "Requisição Falhou" })
+                      );
+                  })
+                  .catch((err) =>
+                    response
+                      .status(400)
+                      .send({ Error: err, Messagem: "Requisição Falhou" })
+                  );
+              })
+              .catch((err) =>
+                response
+                  .status(400)
+                  .send({ Error: err, Messagem: "Requisição Falhou" })
+              );
+          })
+          .catch((err) => response.status(400).send({ Error: err.errors }));
       })
       .catch((err) => response.status(400).send({ Error: err.errors }));
   }

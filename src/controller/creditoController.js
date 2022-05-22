@@ -7,7 +7,7 @@ class CreditoController {
   async getAll(request, response) {
     const { id_categoria } = request.body;
     console.log(id_categoria);
-    await prismaClient.credito
+    await prismaClient.creditos
       .findMany({
         where: {
           id_categoria,
@@ -21,7 +21,7 @@ class CreditoController {
   async getOne(request, response) {
     const { id } = request.params;
 
-    await prismaClient.credito
+    await prismaClient.creditos
       .findUnique({
         where: {
           id,
@@ -34,43 +34,73 @@ class CreditoController {
   //Fazer Controle de Acesso
   async remove(request, response) {
     const { id } = request.params;
+    let valor;
+    let valor_parcela;
+    let id_cartao;
 
-    const credito = await prismaClient.credito
+    await prismaClient.creditos
       .findUnique({
         where: {
           id,
         },
       })
       .then(async (results) => {
-        await prismaClient.credito
+        await prismaClient.creditos
           .delete({
             where: {
               id,
             },
           })
-          .then(async () => {
+          .then(async (results) => {
+            valor = results.valor_total;
+            valor_parcela = results.valor_parcela;
+            id_cartao = results.id_cartao;
             await prismaClient.categorias
-              .update({
+              .findUnique({
                 where: {
-                  id: credito.id_categoria,
-                },
-                data: {
-                  valor_atual: valor_atual - credito.valor_total,
+                  id: results.id_categoria,
                 },
               })
-              .then(async () => {
-                await prismaClient.cartao
+              .then(async (results) => {
+                await prismaClient.categorias
                   .update({
                     where: {
-                      id: credito.id_cartao,
+                      id: results.id,
                     },
                     data: {
-                      saldo_parcelado: saldo_parcelado - credito.valor_parcela,
+                      valor_atual: results.valor_atual - valor,
                     },
                   })
-                  .then((results) =>
-                    response.status(200).send({ remove: true })
-                  )
+                  .then(async () => {
+                    await prismaClient.cartao
+                      .findUnique({
+                        where: {
+                          id: id_cartao,
+                        },
+                      })
+                      .then(async (results) => {
+                        console.log(results);
+                        await prismaClient.cartao
+                          .update({
+                            where: {
+                              id: results.id,
+                            },
+                            data: {
+                              saldo_parcelado:
+                                results.saldo_parcelado - valor_parcela,
+                            },
+                          })
+                          .then((results) =>
+                            response.status(200).send({ remove: true })
+                          )
+                          .catch((err) =>
+                            response.status(400).send({ remove: false, err })
+                          );
+                      })
+                      .catch((err) =>
+                        response.status(400).send({ remove: false, err })
+                      );
+                  })
                   .catch((err) =>
                     response.status(400).send({ remove: false, err })
                   );
@@ -96,6 +126,7 @@ class CreditoController {
       desc: yup.string("A descrição dev  e ser uma String"),
     });
 
+    console.log(valor_total, num_parcelas, desc);
     await schema
       .validate({ valor_total, num_parcelas, desc })
       .then(async () => {
@@ -110,7 +141,7 @@ class CreditoController {
           },
         };
 
-        await prismaClient.credito
+        await prismaClient.creditos
           .create({
             data: {
               valor_total,
@@ -176,9 +207,7 @@ class CreditoController {
           .catch((err) => response.status(400).send({ Error: err.errors }));
       })
       .catch((err) =>
-        response
-          .status(400)
-          .send({ categoria_Cridada: false, error: err.message })
+        response.status(400).send({ Credito_Criado: false, error: err.message })
       );
   }
 }

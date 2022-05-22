@@ -142,7 +142,8 @@ class UserController {
         .min(5, "A senha deve ter ao menos Cinco caracteres"),
       nome: yup
         .string("O nome deve ser uma String")
-        .required("O nome é obrigatório"),
+        .required("O nome é obrigatório")
+        .min(4, "O nome deve ter mais de 4 Caracters"),
     });
 
     await schema
@@ -208,7 +209,7 @@ class UserController {
     const { nome, password, dat_nasc } = request.body;
 
     const schema = yup.object().shape({
-      nome: yup.string().min(4),
+      nome: yup.string().min(4, "Nome deve ter mais de 5 Caracters"),
       password: yup.string().min(5),
     });
 
@@ -243,13 +244,16 @@ class UserController {
 
             response.status(200).send({ Messagem: "Dados Atualizado", result });
           })
-          .catch((err) => response.status(400).send({ Error: err }));
+          .catch((err) =>
+            response
+              .status(400)
+              .send({ Error: err, Messagem: "Requisição Falhou" })
+          );
       })
       .catch((err) => response.status(400).send({ Error: err.errors }));
   }
 
   async updateSaldo_Mensal(request, response) {
-    const { id } = request.params;
     const { saldo_mensal } = request.body;
 
     const schema = yup.object().shape({
@@ -263,10 +267,12 @@ class UserController {
     await schema
       .validate({ saldo_mensal })
       .then(async () => {
+        console.log(saldo_mensal);
+        console.log(request.loggedUser.id);
         await prismaClient.user
           .update({
-            where: { id },
-            data: { saldo_mensal, saldo_resto: saldo_mensal },
+            where: { id: request.loggedUser.id },
+            data: { saldo_mensal },
           })
           .then(() =>
             response.status(200).send({ Messagem: "Saldo Atualizado" })
@@ -277,7 +283,6 @@ class UserController {
   }
 
   async updateDate_Rece(request, response) {
-    const { id } = request.params;
     const { dat_recebe } = request.body;
 
     let dat_nasc_parse;
@@ -290,7 +295,10 @@ class UserController {
       }
     }
     await prismaClient.user
-      .update({ where: { id }, data: { dat_recebe: dat_nasc_parse } })
+      .update({
+        where: request.loggedUser.id,
+        data: { dat_recebe: dat_nasc_parse },
+      })
       .then(() => response.status(200).send({ Messagem: "Data Atualizada" }))
       .catch((err) => response.status(400).send({ Error: err }));
   }

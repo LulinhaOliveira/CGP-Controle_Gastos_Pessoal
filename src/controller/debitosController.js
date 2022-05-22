@@ -14,7 +14,9 @@ class DebitosController {
         },
       })
       .then((results) => response.status(200).send({ Busca: true, results }))
-      .catch((err) => response.status(400).send({ Busca: false, error: err }));
+      .catch((err) =>
+        response.status(400).send({ Error: err, Messagem: "Requisição Falhou" })
+      );
   }
 
   //Fazer Controle de Acesso
@@ -28,14 +30,16 @@ class DebitosController {
         },
       })
       .then((results) => response.status(200).send({ Busca: true, results }))
-      .catch((err) => response.status(400).send({ Busca: false, err }));
+      .catch((err) =>
+        response.status(400).send({ Error: err, Messagem: "Requisição Falhou" })
+      );
   }
 
   //Fazer Controle de Acesso
   async remove(request, response) {
     const { id } = request.params;
-
-    const debito = await prismaClient.debitos
+    let valor;
+    await prismaClient.debitos
       .findUnique({
         where: {
           id,
@@ -48,24 +52,50 @@ class DebitosController {
               id,
             },
           })
-          .then(async () => {
+          .then(async (results) => {
+            valor = results.valor;
             await prismaClient.categorias
-              .update({
+              .findUnique({
                 where: {
-                  id: debito.id_categoria,
-                },
-                data: {
-                  valor_atual: valor_atual - debito.valor_total,
+                  id: results.id_categoria,
                 },
               })
-              .then((results) => response.status(200).send({ remove: true }))
+              .then(async (results) => {
+                await prismaClient.categorias
+                  .update({
+                    where: {
+                      id: results.id,
+                    },
+                    data: {
+                      valor_atual: results.valor_atual - valor,
+                    },
+                  })
+                  .then((results) =>
+                    response
+                      .status(200)
+                      .send({ Remove: true, Messagem: "Sucesso" })
+                  )
+                  .catch((err) =>
+                    response
+                      .status(400)
+                      .send({ Error: err, Messagem: "Requisição Falhou" })
+                  );
+              })
               .catch((err) =>
-                response.status(400).send({ remove: false, err })
+                response
+                  .status(400)
+                  .send({ Error: err, Messagem: "Requisição Falhou" })
               );
           })
-          .catch((err) => response.status(400).send({ remove: false, err }));
+          .catch((err) =>
+            response
+              .status(400)
+              .send({ Error: err, Messagem: "Requisição Falhou" })
+          );
       })
-      .catch((err) => response.status(400).send({ remove: false, err }));
+      .catch((err) =>
+        response.status(400).send({ Error: err, Messagem: "Requisição Falhou" })
+      );
   }
 
   async store(request, response) {
@@ -120,7 +150,9 @@ class DebitosController {
           })
           .catch((err) => response.status(400).send({ Error: err.errors }));
       })
-      .catch((err) => response.status(400).sen({ Erro: err }));
+      .catch((err) =>
+        response.status(400).sen({ Error: err, Messagem: "Requisição Falhou" })
+      );
   }
 }
 
